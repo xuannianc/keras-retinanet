@@ -1,0 +1,6 @@
+code
+number
+date
+check_code
+buyer
+seller
