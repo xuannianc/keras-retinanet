@@ -163,6 +163,7 @@ def run(generator, args):
         args: parseargs args object.
     """
     # display images, one at a time
+    print(generator.size())
     for i in range(generator.size()):
         # load the data
         image       = generator.load_image(i)

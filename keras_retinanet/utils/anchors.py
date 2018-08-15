@@ -201,7 +201,7 @@ def anchors_for_shape(
     if sizes is None:
         sizes = [2 ** (x + 2) for x in pyramid_levels]
     if ratios is None:
-        ratios = np.array([0.5, 1, 2])
+        ratios = np.array([0.125, 0.25, 0.5, 1, 2])
     if scales is None:
         scales = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
 
@@ -256,7 +256,8 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     """
 
     if ratios is None:
-        ratios = np.array([0.5, 1, 2])
+        # ratios = np.array([0.5, 1, 2])
+        ratios = np.array([0.125, 0.25, 0.5, 1, 2])
 
     if scales is None:
         scales = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
