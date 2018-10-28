@@ -28,31 +28,29 @@ class ResNetBackbone(Backbone):
     """ Describes backbone information and provides utility functions.
     """
 
-    def __init__(self, backbone):
-        super(ResNetBackbone, self).__init__(backbone)
+    def __init__(self, backbone_name):
+        super(ResNetBackbone, self).__init__(backbone_name)
         self.custom_objects.update(keras_resnet.custom_objects)
 
     def retinanet(self, *args, **kwargs):
         """ Returns a retinanet model using the correct backbone.
         """
-        return resnet_retinanet(*args, backbone=self.backbone, **kwargs)
+        return resnet_retinanet(*args, backbone=self.backbone_name, **kwargs)
 
     def download_imagenet(self):
         """ Downloads ImageNet weights and returns path to weights file.
         """
         resnet_filename = 'ResNet-{}-model.keras.h5'
-        resnet_resource = 'https://github.com/fizyr/keras-models/releases/download/v0.0.1/{}'.format(resnet_filename)
-        depth = int(self.backbone.replace('resnet', ''))
-
+        depth = int(self.backbone_name.replace('resnet', ''))
         filename = resnet_filename.format(depth)
-        resource = resnet_resource.format(depth)
+        resource = 'https://github.com/fizyr/keras-models/releases/download/v0.0.1/{}'.format(filename)
         if depth == 50:
             checksum = '3e9f4e4f77bbe2c9bec13b53ee1c2319'
         elif depth == 101:
             checksum = '05dc86924389e5b401a9ea0348a3213c'
         elif depth == 152:
             checksum = '6ee11ef2b135592f8031058820bb9e71'
-
+        # 把 {resource} 指定的文件下载到 ~/.keras/{cache_subdir} 下面,命名为 {filename}
         return get_file(
             filename,
             resource,
@@ -63,11 +61,13 @@ class ResNetBackbone(Backbone):
     def validate(self):
         """ Checks whether the backbone string is correct.
         """
-        allowed_backbones = ['resnet50', 'resnet101', 'resnet152']
-        backbone = self.backbone.split('_')[0]
+        allowed_backbone_names = ['resnet50', 'resnet101', 'resnet152']
+        backbone_name = self.backbone_name.split('_')[0]
 
-        if backbone not in allowed_backbones:
-            raise ValueError('Backbone (\'{}\') not in allowed backbones ({}).'.format(backbone, allowed_backbones))
+        if backbone_name not in allowed_backbone_names:
+            raise ValueError(
+                'Backbone name (\'{}\') not in allowed backbones names ({}).'.format(backbone_name,
+                                                                                    allowed_backbone_names))
 
     def preprocess_image(self, inputs):
         """ Takes as input an image and prepares it for being passed through the network.

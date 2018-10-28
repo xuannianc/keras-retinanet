@@ -70,7 +70,7 @@ def _random_vector(min, max, prng=DEFAULT_PRNG):
 def rotation(angle):
     """ Construct a homogeneous 2D rotation matrix.
     Args
-        angle: the angle in radians
+        angle: the angle in radians (弧度 3.14.. 相当于 180°)
     Returns
         the rotation matrix as 3 by 3 numpy array
     """
@@ -283,6 +283,9 @@ def random_transform_generator(prng=None, **kwargs):
 
     if prng is None:
         # RandomState automatically seeds using the best available method.
+        # np.random.seed(1234);np.random.uniform(0, 10, 5)
+        # 相当于 r = np.random.RandomState(1234);r.uniform(0, 10, 5)
+        # RandomState 初始化时会调用 np.random.seed(x)
         prng = np.random.RandomState()
 
     while True:

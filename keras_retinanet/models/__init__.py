@@ -5,7 +5,7 @@ import sys
 class Backbone(object):
     """ This class stores additional information on backbones.
     """
-    def __init__(self, backbone):
+    def __init__(self, backbone_name):
         # a dictionary mapping custom layer names to the correct classes
         from .. import layers
         from .. import losses
@@ -21,7 +21,7 @@ class Backbone(object):
             '_focal'           : losses.focal(),
         }
 
-        self.backbone = backbone
+        self.backbone_name = backbone_name
         self.validate()
 
     def retinanet(self, *args, **kwargs):
@@ -58,7 +58,7 @@ def backbone(backbone_name):
     elif 'densenet' in backbone_name:
         from .densenet import DenseNetBackbone as b
     else:
-        raise NotImplementedError('Backbone class for  \'{}\' not implemented.'.format(backbone))
+        raise NotImplementedError('Backbone class for  \'{}\' not implemented.'.format(backbone_name))
 
     return b(backbone_name)
 
