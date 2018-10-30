@@ -231,13 +231,20 @@ class Generator(object):
         """ Order the images according to self.order and makes groups of self.batch_size.
         """
         # determine the order of the images
+        # CSVGenerator 的 size() 方法是获取 image 的个数
         order = list(range(self.size()))
         if self.group_method == 'random':
             random.shuffle(order)
         elif self.group_method == 'ratio':
+            # CSVGenerator 的 image_aspect_ratio() 方法是 image 的宽/高
             order.sort(key=lambda x: self.image_aspect_ratio(x))
 
         # divide into groups, one group = one batch
+        # 假设图片的数量为 num_images, 把这些图片分成 n 份, n=num_images/batch_size 整除的情况, n=num_images/batch_size + 1 非整除的情况
+        # 那么每份有 batch_size 张图片
+        # NOTE: x % len(order) 可以处理 num_images/batch_size 不能整除的情况, 使用非常巧妙
+        # 不能整除是指, 最后一个 batch 本不足 batch_size 张图片, 但是 x % len(order) 就可以用开头的图片进行补充
+        # 最后 self.groups 就是指每一个 batch 的图片的 order, order 是经过随机打乱或者按 aspect_ratio 排序的
         self.groups = [[order[x % len(order)] for x in range(i, i + self.batch_size)] for i in range(0, len(order), self.batch_size)]
 
     def compute_inputs(self, image_group):

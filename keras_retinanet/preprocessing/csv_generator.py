@@ -70,6 +70,7 @@ def _read_annotations(csv_reader, classes):
         try:
             img_file, x1, y1, x2, y2, class_name = row[:6]
         except ValueError:
+            # FIXME: 其实这里并没有捕捉非以下两种情况
             raise_from(ValueError('line {}: format should be \'img_file,x1,y1,x2,y2,class_name\' or \'img_file,,,,,\''.format(line)), None)
 
         if img_file not in result:
@@ -78,7 +79,9 @@ def _read_annotations(csv_reader, classes):
         # If a row contains only an image path, it's an image without annotations.
         if (x1, y1, x2, y2, class_name) == ('', '', '', '', ''):
             continue
-
+        # 把 x1 转成 int, 如果失败, 抛异常, 最后一个参数为 error msg
+        # 如果想要在 format 语句中保留 {}, 需要 double {}, 即为 {{}} 会打印出 {}
+        # 参见 https://stackoverflow.com/questions/5466451/how-can-i-print-literal-curly-brace-characters-in-python-string-and-also-use-fo
         x1 = _parse(x1, int, 'line {}: malformed x1: {{}}'.format(line))
         y1 = _parse(y1, int, 'line {}: malformed y1: {{}}'.format(line))
         x2 = _parse(x2, int, 'line {}: malformed x2: {{}}'.format(line))
@@ -209,7 +212,7 @@ class CSVGenerator(Generator):
     def load_annotations(self, image_index):
         """ Load annotations for an image_index.
         """
-        path        = self.image_names[image_index]
+        path = self.image_names[image_index]
         annotations = {'labels': np.empty((0,)), 'bboxes': np.empty((0, 4))}
 
         for idx, annot in enumerate(self.image_data[path]):
