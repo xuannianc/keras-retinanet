@@ -439,7 +439,7 @@ def parse_args(args):
                         default=800)
     parser.add_argument('--image-max-side', help='Rescale the image if the largest side is larger than max_side.',
                         type=int, default=1333)
-    parser.add_argument('--config', help='Path to a configuration parameters .ini file.')
+    parser.add_argument('--config_filepath', help='Path to a configuration parameters .ini file.')
     parser.add_argument('--weighted-average',
                         help='Compute the mAP using the weighted average of precisions among classes.',
                         action='store_true')
@@ -465,9 +465,10 @@ def main(args=None):
     keras.backend.tensorflow_backend.set_session(get_session())
 
     # optionally load config parameters
-    if args.config:
-        args.config = read_config_file(args.config)
-
+    if args.config_filepath:
+        config = read_config_file(args.config_filepath)
+    else:
+        config = None
     # create the generators
     train_generator, validation_generator = create_generators(args, backbone.preprocess_image)
 
@@ -493,7 +494,7 @@ def main(args=None):
             weights=weights,
             multi_gpu=args.multi_gpu,
             freeze_backbone=args.freeze_backbone,
-            config=args.config
+            config=config
         )
 
     # print model summary

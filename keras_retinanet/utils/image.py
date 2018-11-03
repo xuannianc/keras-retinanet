@@ -26,7 +26,7 @@ from .transform import change_transform_origin
 def read_image_bgr(path):
     """ Read an image in BGR format.
 
-    Args
+    Args:
         path: Path to the image.
     """
     image = np.asarray(Image.open(path).convert('RGB'))
@@ -36,7 +36,7 @@ def read_image_bgr(path):
 def preprocess_image(x, mode='caffe'):
     """ Preprocess an image by subtracting the ImageNet mean.
 
-    Args
+    Args:
         x: np.array of shape (None, None, 3) or (3, None, None).
         mode: One of "caffe" or "tf".
             - caffe: will zero-center each color channel with

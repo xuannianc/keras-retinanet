@@ -139,6 +139,7 @@ def __create_pyramid_features(C3, C4, C5, feature_size=256):
     """
     # upsample C5 to get P5 from the FPN paper
     P5 = keras.layers.Conv2D(feature_size, kernel_size=1, strides=1, padding='same', name='C5_reduced')(C5)
+    # FIXME: 可以用 Upsampling2D 来代替 UpsampleLike
     P5_upsampled = layers.UpsampleLike(name='P5_upsampled')([P5, C4])
     P5 = keras.layers.Conv2D(feature_size, kernel_size=3, strides=1, padding='same', name='P5')(P5)
 
@@ -181,7 +182,7 @@ def default_submodels(num_classes, num_anchors):
     ]
 
 
-def __build_model_pyramid(name, model, features):
+def __build_model_pyramid(model_name, model, features):
     """ Applies a single submodel to each FPN level.
 
     Args
@@ -192,7 +193,11 @@ def __build_model_pyramid(name, model, features):
     Returns
         A tensor containing the response from the submodel on the FPN features.
     """
-    return keras.layers.Concatenate(axis=1, name=name)([model(f) for f in features])
+    # 如 features 为 [P3, P4, P5, P6, P7], model 是 regression_model
+    # 那么返回值的 shape 为 (None, 4 * 5)
+    # 关于 Concatenate, 所有数组的维度一定要相同, 假设 a 的 shape 为 (3,2), b 的 shape 为 (3,), 那么是不能使用 concatenate 的
+    # 假设 a 的 shape 为 (3,2), b 的 shape 为 (3,4), 那么 concatenate(axis=1) 是 shape 变为 (3,6)
+    return keras.layers.Concatenate(axis=1, name=model_name)([model(f) for f in features])
 
 
 def __build_pyramid(models, features):
@@ -205,7 +210,7 @@ def __build_pyramid(models, features):
     Returns
         A list of tensors, one for each submodel.
     """
-    return [__build_model_pyramid(n, m, features) for n, m in models]
+    return [__build_model_pyramid(model_name, model, features) for model_name, model in models]
 
 
 def __build_anchors(anchor_parameters, features):
@@ -232,7 +237,7 @@ def __build_anchors(anchor_parameters, features):
             name='anchors_{}'.format(i)
         )(f) for i, f in enumerate(features)
     ]
-
+    # 所有 feature maps 上的 anchors 连接在一起
     return keras.layers.Concatenate(axis=1, name='anchors')(anchors)
 
 
@@ -249,15 +254,15 @@ def retinanet(
 
     This model is the minimum model necessary for training (with the unfortunate exception of anchors as output).
 
-    Args
+    Args:
         inputs                  : keras.layers.Input (or list of) for the input to the model.
         num_classes             : Number of classes to classify.
         num_anchors             : Number of base anchors.
         create_pyramid_features : Functor for creating pyramid features given the features C3, C4, C5 from the backbone.
-        submodels               : Submodels to run on each feature map (default is regression and classification submodels).
+        submodels               : Submodels to run on each feature map (default are regression and classification submodels).
         name                    : Name of the model.
 
-    Returns
+    Returns:
         A keras.models.Model which takes an image as input and outputs generated anchors and the result from each submodel on every pyramid level.
 
         The order of the outputs is as defined in submodels:
@@ -277,6 +282,7 @@ def retinanet(
     C3, C4, C5 = backbone_layers
 
     # compute pyramid features as per https://arxiv.org/abs/1708.02002
+    # 返回: [P3, P4, P5, P6, P7]
     features = create_pyramid_features(C3, C4, C5)
 
     # for all pyramid levels, run available submodels
@@ -325,6 +331,7 @@ def retinanet_bbox(
     if model is None:
         model = retinanet(num_anchors=anchor_params.num_anchors(), **kwargs)
     else:
+        # 判断 model 的 outputs 中是否有 'regression' 和 'classfication'
         assert_training_model(model)
 
     # compute the anchors

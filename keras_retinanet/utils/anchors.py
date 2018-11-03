@@ -29,11 +29,12 @@ class AnchorParameters:
         ratios  : List of ratios to use per location in a feature map.
         scales  : List of scales to use per location in a feature map.
     """
+
     def __init__(self, sizes, strides, ratios, scales):
-        self.sizes   = sizes
+        self.sizes = sizes
         self.strides = strides
-        self.ratios  = ratios
-        self.scales  = scales
+        self.ratios = ratios
+        self.scales = scales
 
     def num_anchors(self):
         return len(self.ratios) * len(self.scales)
@@ -43,20 +44,22 @@ class AnchorParameters:
 The default anchor parameters.
 """
 AnchorParameters.default = AnchorParameters(
-    sizes   = [32, 64, 128, 256, 512],
-    strides = [8, 16, 32, 64, 128],
-    ratios  = np.array([0.5, 1, 2], keras.backend.floatx()),
-    scales  = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)], keras.backend.floatx()),
+    # NOTE: 32 表示在 P3 上 anchor 的大小, P3 相比与原图长和宽都缩小了 4 倍, 那么原图上 32 * 32, 到 P3 上就是 8 * 8
+    sizes=[32, 64, 128, 256, 512],
+    strides=[8, 16, 32, 64, 128],
+    # floatx() 返回 keras 默认使用的浮点数类型 'float32'
+    ratios=np.array([0.5, 1, 2], keras.backend.floatx()),
+    scales=np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)], keras.backend.floatx()),
 )
 
 
 def anchor_targets_bbox(
-    anchors,
-    image_group,
-    annotations_group,
-    num_classes,
-    negative_overlap=0.4,
-    positive_overlap=0.5
+        anchors,
+        image_group,
+        annotations_group,
+        num_classes,
+        negative_overlap=0.4,
+        positive_overlap=0.5
 ):
     """ Generate anchor targets for bbox detection.
 
@@ -77,31 +80,35 @@ def anchor_targets_bbox(
                       last column defines anchor states (-1 for ignore, 0 for bg, 1 for fg).
     """
 
-    assert(len(image_group) == len(annotations_group)), "The length of the images and annotations need to be equal."
-    assert(len(annotations_group) > 0), "No data received to compute anchor targets for."
+    assert (len(image_group) == len(annotations_group)), "The length of the images and annotations need to be equal."
+    assert (len(annotations_group) > 0), "No data received to compute anchor targets for."
     for annotations in annotations_group:
-        assert('bboxes' in annotations), "Annotations should contain bboxes."
-        assert('labels' in annotations), "Annotations should contain labels."
+        assert ('bboxes' in annotations), "Annotations should contain bboxes."
+        assert ('labels' in annotations), "Annotations should contain labels."
 
     batch_size = len(image_group)
 
-    regression_batch  = np.zeros((batch_size, anchors.shape[0], 4 + 1), dtype=keras.backend.floatx())
-    labels_batch      = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=keras.backend.floatx())
+    regression_batch = np.zeros((batch_size, anchors.shape[0], 4 + 1), dtype=keras.backend.floatx())
+    labels_batch = np.zeros((batch_size, anchors.shape[0], num_classes + 1), dtype=keras.backend.floatx())
 
     # compute labels and regression targets
     for index, (image, annotations) in enumerate(zip(image_group, annotations_group)):
         if annotations['bboxes'].shape[0]:
             # obtain indices of gt annotations with the greatest overlap
-            positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(anchors, annotations['bboxes'], negative_overlap, positive_overlap)
+            positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(anchors,
+                                                                                            annotations['bboxes'],
+                                                                                            negative_overlap,
+                                                                                            positive_overlap)
 
-            labels_batch[index, ignore_indices, -1]       = -1
-            labels_batch[index, positive_indices, -1]     = 1
+            labels_batch[index, ignore_indices, -1] = -1
+            labels_batch[index, positive_indices, -1] = 1
 
-            regression_batch[index, ignore_indices, -1]   = -1
+            regression_batch[index, ignore_indices, -1] = -1
             regression_batch[index, positive_indices, -1] = 1
 
             # compute target class labels
-            labels_batch[index, positive_indices, annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int)] = 1
+            labels_batch[
+                index, positive_indices, annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int)] = 1
 
             regression_batch[index, :, :-1] = bbox_transform(anchors, annotations['bboxes'][argmax_overlaps_inds, :])
 
@@ -110,17 +117,17 @@ def anchor_targets_bbox(
             anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
             indices = np.logical_or(anchors_centers[:, 0] >= image.shape[1], anchors_centers[:, 1] >= image.shape[0])
 
-            labels_batch[index, indices, -1]     = -1
+            labels_batch[index, indices, -1] = -1
             regression_batch[index, indices, -1] = -1
 
     return regression_batch, labels_batch
 
 
 def compute_gt_annotations(
-    anchors,
-    annotations,
-    negative_overlap=0.4,
-    positive_overlap=0.5
+        anchors,
+        annotations,
+        negative_overlap=0.4,
+        positive_overlap=0.5
 ):
     """ Obtain indices of gt annotations with the greatest overlap.
 
@@ -175,6 +182,7 @@ def layer_shapes(image_shape, model):
 def make_shapes_callback(model):
     """ Make a function for getting the shape of the pyramid levels.
     """
+
     def get_shapes(image_shape, pyramid_levels):
         shape = layer_shapes(image_shape, model)
         image_shapes = [shape["P{}".format(level)][1:3] for level in pyramid_levels]
@@ -199,10 +207,10 @@ def guess_shapes(image_shape, pyramid_levels):
 
 
 def anchors_for_shape(
-    image_shape,
-    pyramid_levels=None,
-    anchor_params=None,
-    shapes_callback=None,
+        image_shape,
+        pyramid_levels=None,
+        anchor_params=None,
+        shapes_callback=None,
 ):
     """ Generators anchors for a given shape.
 
@@ -235,7 +243,7 @@ def anchors_for_shape(
             scales=anchor_params.scales
         )
         shifted_anchors = shift(image_shapes[idx], anchor_params.strides[idx], anchors)
-        all_anchors     = np.append(all_anchors, shifted_anchors, axis=0)
+        all_anchors = np.append(all_anchors, shifted_anchors, axis=0)
 
     return all_anchors
 
@@ -283,23 +291,38 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
 
     if scales is None:
         scales = AnchorParameters.default.scales
-
+    # ratios 和 scales 都是 np.array, len() 是可以作用于 np.array 的
     num_anchors = len(ratios) * len(scales)
 
     # initialize output anchors
     anchors = np.zeros((num_anchors, 4))
 
     # scale base_size
+    # np.tile 对 np.array 的内容进行复制, 第二个参数表示复制的次数
+    # 如果第二个参数是一个 int, 那么表示沿 axis=-1 进行复制
+    # 如果第二个参数是一个 tuple, 那么分别沿对应的 axis 进行复制
+    # 参见 https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.tile.html
+    # 假设 scales 和 ratios 都是默认值, 即为 np.array([1, 2^(1/3)=1.26, 2^(2/3)=1.59]) 和 np.array([0.5, 1, 2])
+    # np.tile 之后就变为 np.array([[1,1.26,1.59,1,1.26,1.59,1,1.26,1.59],[1,1.26,1.59,1,1.26,1.59,1,1.26,1.59]])
     anchors[:, 2:] = base_size * np.tile(scales, (2, len(ratios))).T
 
     # compute areas of anchors
     areas = anchors[:, 2] * anchors[:, 3]
 
     # correct for ratios
-    anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
-    anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
+    # np.repeat 的第三个参数为 axis=None, 默认是先铺平再对元素重复
+    # 参见 https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.repeat.html
+    # 如 ratios 为 np.array([0.5,1,2]),len(scales)=3, repeat 之后返回 np.array([0.5,0.5,0.5,1,1,1,2,2,2])
+    # FIXME: 修改后宽小于长的 anchors 放在前面
+    anchors[:, 2] = np.sqrt(areas * np.repeat(ratios, len(scales)))
+    anchors[:, 3] = anchors[:, 2] / np.repeat(ratios, len(scales))
+    # anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
+    # anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
 
-    # transform from (x_ctr, y_ctr, w, h) -> (x1, y1, x2, y2)
+    # transform from (0, 0, w, h) -> (x1, y1, x2, y2)
+    # anchors[:,2] * 0.5 把所有的 width 乘以 0.5, shape 是 (num_anchors,)
+    # np.tile 之后, shape 变为 (2, num_anchors),然后再转置 (num_anchors,2)
+    # anchors 的每一行元素变成 (-w/2,-h/2,w/2,h/2)
     anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
     anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
 
@@ -324,7 +347,7 @@ def bbox_transform(anchors, gt_boxes, mean=None, std=None):
     elif not isinstance(std, np.ndarray):
         raise ValueError('Expected std to be a np.ndarray, list or tuple. Received: {}'.format(type(std)))
 
-    anchor_widths  = anchors[:, 2] - anchors[:, 0]
+    anchor_widths = anchors[:, 2] - anchors[:, 0]
     anchor_heights = anchors[:, 3] - anchors[:, 1]
 
     targets_dx1 = (gt_boxes[:, 0] - anchors[:, 0]) / anchor_widths

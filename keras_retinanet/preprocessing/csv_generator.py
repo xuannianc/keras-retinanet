@@ -68,13 +68,15 @@ def _read_annotations(csv_reader, classes):
         line += 1
 
         try:
-            img_file, x1, y1, x2, y2, class_name = row[:6]
+            # NOTE: 如果 row 不足 6 个元素, row[:6] 不会报错, 但是不能 unpack 后赋值到 6 个变量
+            image_filepath, x1, y1, x2, y2, class_name = row[:6]
         except ValueError:
-            # FIXME: 其实这里并没有捕捉非以下两种情况
-            raise_from(ValueError('line {}: format should be \'img_file,x1,y1,x2,y2,class_name\' or \'img_file,,,,,\''.format(line)), None)
+            raise_from(ValueError(
+                'line {}: format should be \'image_filepath,x1,y1,x2,y2,class_name\' or \'image_filepath,,,,,\''.format(
+                    line)), None)
 
-        if img_file not in result:
-            result[img_file] = []
+        if image_filepath not in result:
+            result[image_filepath] = []
 
         # If a row contains only an image path, it's an image without annotations.
         if (x1, y1, x2, y2, class_name) == ('', '', '', '', ''):
@@ -97,7 +99,7 @@ def _read_annotations(csv_reader, classes):
         if class_name not in classes:
             raise ValueError('line {}: unknown class name: \'{}\' (classes: {})'.format(line, class_name, classes))
 
-        result[img_file].append({'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': class_name})
+        result[image_filepath].append({'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': class_name})
     return result
 
 
@@ -121,54 +123,59 @@ class CSVGenerator(Generator):
 
     def __init__(
         self,
-        csv_data_file,
-        csv_class_file,
+        csv_data_filepath,
+        csv_class_filepath,
         base_dir=None,
         **kwargs
     ):
         """ Initialize a CSV data generator.
 
-        Args
-            csv_data_file: Path to the CSV annotations file.
-            csv_class_file: Path to the CSV classes file.
-            base_dir: Directory w.r.t. where the files are to be searched (defaults to the directory containing the csv_data_file).
+        Args:
+            csv_data_filepath: Path to the CSV annotations file. 文件内容格式为: image_filepath,x1,y1,x2,y2,class_name
+            csv_class_filepath: Path to the CSV classes file. 文件内容格式为: class_name, class_id
+            base_dir: Directory w.r.t. where the files are to be searched
+                (defaults to the directory containing the csv_data_file).
         """
-        self.image_names = []
-        self.image_data  = {}
-        self.base_dir    = base_dir
+        self.image_filepaths = []
+        self.image_data = {}
+        self.base_dir = base_dir
 
         # Take base_dir from annotations file if not explicitly specified.
         if self.base_dir is None:
-            self.base_dir = os.path.dirname(csv_data_file)
+            self.base_dir = os.path.dirname(csv_data_filepath)
 
         # parse the provided class file
         try:
-            with _open_for_csv(csv_class_file) as file:
+            # _open_for_csv 封装了 open 以兼容 python2 和 python3
+            with _open_for_csv(csv_class_filepath) as file:
                 self.classes = _read_classes(csv.reader(file, delimiter=','))
         except ValueError as e:
-            raise_from(ValueError('invalid CSV class file: {}: {}'.format(csv_class_file, e)), None)
+            raise_from(ValueError('invalid CSV class file: {}: {}'.format(csv_class_filepath, e)), None)
 
+        # self.classes 的内容格式为 {class_name:class_id,...}
+        # 那么 self.labels 的内容格式为 {class_id:class_name,...}
         self.labels = {}
         for key, value in self.classes.items():
             self.labels[value] = key
 
-        # csv with img_path, x1, y1, x2, y2, class_name
+        # csv with image_filepath, x1, y1, x2, y2, class_name
         try:
-            with _open_for_csv(csv_data_file) as file:
+            with _open_for_csv(csv_data_filepath) as file:
                 self.image_data = _read_annotations(csv.reader(file, delimiter=','), self.classes)
         except ValueError as e:
-            raise_from(ValueError('invalid CSV annotations file: {}: {}'.format(csv_data_file, e)), None)
-        self.image_names = list(self.image_data.keys())
+            raise_from(ValueError('invalid CSV annotations file: {}: {}'.format(csv_data_filepath, e)), None)
+        self.image_filepaths = list(self.image_data.keys())
 
         super(CSVGenerator, self).__init__(**kwargs)
 
     def size(self):
         """ Size of the dataset.
         """
-        return len(self.image_names)
+        return len(self.image_filepaths)
 
     def num_classes(self):
         """ Number of classes in the dataset.
+        FIXME: 这里就默认 class_id 从 0 开始且没有间隔
         """
         return max(self.classes.values()) + 1
 
@@ -192,27 +199,27 @@ class CSVGenerator(Generator):
         """
         return self.labels[label]
 
-    def image_path(self, image_index):
+    def image_filepath(self, image_index):
         """ Returns the image path for image_index.
         """
-        return os.path.join(self.base_dir, self.image_names[image_index])
+        return os.path.join(self.base_dir, self.image_filepaths[image_index])
 
     def image_aspect_ratio(self, image_index):
         """ Compute the aspect ratio for an image with image_index.
         """
         # PIL is fast for metadata
-        image = Image.open(self.image_path(image_index))
+        image = Image.open(self.image_filepaths(image_index))
         return float(image.width) / float(image.height)
 
     def load_image(self, image_index):
         """ Load an image at the image_index.
         """
-        return read_image_bgr(self.image_path(image_index))
+        return read_image_bgr(self.image_filepath(image_index))
 
     def load_annotations(self, image_index):
         """ Load annotations for an image_index.
         """
-        path = self.image_names[image_index]
+        path = self.image_filepaths[image_index]
         annotations = {'labels': np.empty((0,)), 'bboxes': np.empty((0, 4))}
 
         for idx, annot in enumerate(self.image_data[path]):

@@ -39,7 +39,7 @@ def bbox_transform_inv(boxes, deltas, mean=None, std=None):
     if std is None:
         std = [0.2, 0.2, 0.2, 0.2]
 
-    width  = boxes[:, :, 2] - boxes[:, :, 0]
+    width = boxes[:, :, 2] - boxes[:, :, 0]
     height = boxes[:, :, 3] - boxes[:, :, 1]
 
     x1 = boxes[:, :, 0] + (deltas[:, :, 0] * std[0] + mean[0]) * width
@@ -55,31 +55,47 @@ def bbox_transform_inv(boxes, deltas, mean=None, std=None):
 def shift(shape, stride, anchors):
     """ Produce shifted anchors based on shape of the map and stride size.
 
-    Args
-        shape  : Shape to shift the anchors over.
+    Args:
+        shape  : Shape of feature map to shift the anchors over. (feature_map_height, feature_map_width)
         stride : Stride to shift the anchors with over the shape.
         anchors: The anchors to apply at each location.
+                接收的 anchors 的中心点都在 (0,0),而真正 anchors 的起点是 (0.5 * stride, 0.5 * stride)
     """
     shift_x = (keras.backend.arange(0, shape[1], dtype=keras.backend.floatx()) + keras.backend.constant(0.5, dtype=keras.backend.floatx())) * stride
     shift_y = (keras.backend.arange(0, shape[0], dtype=keras.backend.floatx()) + keras.backend.constant(0.5, dtype=keras.backend.floatx())) * stride
-
+    # 假设 shift_x 的 shape 为 (m,),shift_y 的 shape 为 (n,),那么 meshgrid 会生成两个 shape 为 (m,n) 的数组
+    # 第一个数组的内容相当于沿着 axis=0 复制了 n 次, 第二个数组的内容相当于把每个元素沿着 axis=1 复制了 m 次
+    # 假设 shape=(4,3),stride=1 shift_x=np.array([0.5,1.5,2.5,3.5]), shift_y=np.array([0.5,1.5,2.5])
+    # 那么 np.meshgrid(a,b) 生成两个数组
+    # 第一个数组为 np.array([[0.5,1.5,2.5,3.5],[0.5,1.5,2.5,3.5],[0.5,1.5,2.5,3.5]]) * stride
+    # 第二个数组为 np.array([[0.5,0.5,0.5,0.5],[1.5,1.5,1.5,1.5],[2.5,2.5,2.5,2.5]]) * stride
     shift_x, shift_y = meshgrid(shift_x, shift_y)
+    # reshape 后的 shift_x 变成 np.array([0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5]) * stride
     shift_x = keras.backend.reshape(shift_x, [-1])
+    # reshape 后的 shift_y 变成 np.array([0.5,0.5,0.5,0.5,1.5,1.5,1.5,1.5,2.5,2.5,2.5,2.5]) * stride
     shift_y = keras.backend.reshape(shift_y, [-1])
-
+    # shifts 为 np.array([[0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5],
+    #                    [0.5,0.5,0.5,0.5,1.5,1.5,1.5,1.5,2.5,2.5,2.5,2.5],
+    #                    [0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5,0.5,1.5,2.5,3.5],
+    #                    [0.5,0.5,0.5,0.5,1.5,1.5,1.5,1.5,2.5,2.5,2.5,2.5]]) * stride
+    # 可以依次视为 x1,y1,x2,y2 的 shift
     shifts = keras.backend.stack([
         shift_x,
         shift_y,
         shift_x,
         shift_y
     ], axis=0)
-
-    shifts            = keras.backend.transpose(shifts)
-    number_of_anchors = keras.backend.shape(anchors)[0]
+    # keras.backend.transpose 用来转置
+    # 参见 https://www.tensorflow.org/api_docs/python/tf/keras/backend/transpose
+    # shape 为 (k,4)
+    shifts = keras.backend.transpose(shifts)
+    num_anchors = keras.backend.shape(anchors)[0]
 
     k = keras.backend.shape(shifts)[0]  # number of base points = feat_h * feat_w
-
-    shifted_anchors = keras.backend.reshape(anchors, [1, number_of_anchors, 4]) + keras.backend.cast(keras.backend.reshape(shifts, [k, 1, 4]), keras.backend.floatx())
-    shifted_anchors = keras.backend.reshape(shifted_anchors, [k * number_of_anchors, 4])
+    # num_anchors 个 anchor 分别做 k 个 shift
+    # 这一步应该是用了 broadcast,太复杂了 , 返回的 shape (k, num_anchors, 4)
+    # TODO 改掉这样的实现
+    shifted_anchors = keras.backend.reshape(anchors, [1, num_anchors, 4]) + keras.backend.cast(keras.backend.reshape(shifts, [k, 1, 4]), keras.backend.floatx())
+    shifted_anchors = keras.backend.reshape(shifted_anchors, [k * num_anchors, 4])
 
     return shifted_anchors

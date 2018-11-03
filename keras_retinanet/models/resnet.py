@@ -51,6 +51,7 @@ class ResNetBackbone(Backbone):
         elif depth == 152:
             checksum = '6ee11ef2b135592f8031058820bb9e71'
         # 把 {resource} 指定的文件下载到 ~/.keras/{cache_subdir} 下面,命名为 {filename}
+        # 返回该文件的路径
         return get_file(
             filename,
             resource,
@@ -72,19 +73,21 @@ class ResNetBackbone(Backbone):
     def preprocess_image(self, inputs):
         """ Takes as input an image and prepares it for being passed through the network.
         """
+        # NOTE: 并不是所有的 model 的 mode 都是 'tf', 如 mobilenet 是 tf, 而 resnet 是 caffe, 需要和 keras 的实现保持一致
+        # 可参见 https://github.com/fizyr/keras-retinanet/issues/340
         return preprocess_image(inputs, mode='caffe')
 
 
 def resnet_retinanet(num_classes, backbone='resnet50', inputs=None, modifier=None, **kwargs):
     """ Constructs a retinanet model using a resnet backbone.
 
-    Args
+    Args:
         num_classes: Number of classes to predict.
         backbone: Which backbone to use (one of ('resnet50', 'resnet101', 'resnet152')).
         inputs: The inputs to the network (defaults to a Tensor of shape (None, None, 3)).
         modifier: A function handler which can modify the backbone before using it in retinanet (this can be used to freeze backbone layers for example).
 
-    Returns
+    Returns:
         RetinaNet model with a ResNet backbone.
     """
     # choose default input
@@ -109,6 +112,7 @@ def resnet_retinanet(num_classes, backbone='resnet50', inputs=None, modifier=Non
         resnet = modifier(resnet)
 
     # create the full model
+    # resnet.outputs 是 [C2, C3, C4, C5]
     return retinanet.retinanet(inputs=inputs, num_classes=num_classes, backbone_layers=resnet.outputs[1:], **kwargs)
 
 
