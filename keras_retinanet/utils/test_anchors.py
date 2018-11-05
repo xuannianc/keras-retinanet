@@ -42,4 +42,22 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     return anchors
 
 
-generate_anchors()
+# generate_anchors()
+
+
+def guess_shapes(image_shape, pyramid_levels):
+    """Guess shapes based on pyramid levels.
+
+    Args
+         image_shape: The shape of the image.
+         pyramid_levels: A list of what pyramid levels are used.
+
+    Returns
+        A list of image shapes at each pyramid level.
+    """
+    image_shape = np.array(image_shape[:2])
+    image_shapes = [(image_shape + 2 ** x - 1) // (2 ** x) for x in pyramid_levels]
+    return image_shapes
+
+
+print(guess_shapes((1024, 1024), [3, 4, 5, 6, 7]))

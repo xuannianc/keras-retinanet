@@ -258,11 +258,18 @@ def shift(shape, stride, anchors):
     """
 
     # create a grid starting from half stride from the top left corner
+    # 如原 image 的 shape 为 (512, 1024), C3 的 shape 为 (64, 128) 缩小了 8 倍, stride=8
+    # 那么 shift_x 为 np.array([0.5 * 8, 1.5 * 8,...,127.5 * 8])
     shift_x = (np.arange(0, shape[1]) + 0.5) * stride
+    # 那么 shift_y 为 np.array((0.5 * 8, 1.5 * 8,...,63.5 * 8])
     shift_y = (np.arange(0, shape[0]) + 0.5) * stride
-
+    # shift_x 为 np.array([[0.5 * 8, 1.5 * 8,...,127.5 * 8],...62 个...,[0.5 * 8, 1.5 * 8,...,127.5 * 8]])
+    # shift_y 为 np.array([[0.5 * 8,...126 个...,0.5 * 8],...62 个...,[63.5 * 8,...126 个...,63.5 * 8]])
     shift_x, shift_y = np.meshgrid(shift_x, shift_y)
-
+    # shifts 为 np.array([[0.5 * 8, 1.5 * 8,...,127.5 * 8,...62 个...,0.5 * 8, 1.5 * 8,...,127.5 * 8],
+    #                      [0.5 * 8,...126 个...,0.5 * 8,...62 个...,63.5 * 8,...126 个...,63.5 * 8],
+    #                     [0.5 * 8, 1.5 * 8,...,127.5 * 8,...62 个...,0.5 * 8, 1.5 * 8,...,127.5 * 8],
+    #                     [0.5 * 8,...126 个...,0.5 * 8,...62 个...,63.5 * 8,...126 个...,63.5 * 8]].T
     shifts = np.vstack((
         shift_x.ravel(), shift_y.ravel(),
         shift_x.ravel(), shift_y.ravel()
@@ -274,6 +281,7 @@ def shift(shape, stride, anchors):
     # reshape to (K*A, 4) shifted anchors
     A = anchors.shape[0]
     K = shifts.shape[0]
+    # TODO: 了解一下 numpy broadcast
     all_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
     all_anchors = all_anchors.reshape((K * A, 4))
 
@@ -314,7 +322,9 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     # 参见 https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.repeat.html
     # 如 ratios 为 np.array([0.5,1,2]),len(scales)=3, repeat 之后返回 np.array([0.5,0.5,0.5,1,1,1,2,2,2])
     # FIXME: 修改后宽小于长的 anchors 放在前面
+    # 获取宽
     anchors[:, 2] = np.sqrt(areas * np.repeat(ratios, len(scales)))
+    # 获取高
     anchors[:, 3] = anchors[:, 2] / np.repeat(ratios, len(scales))
     # anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
     # anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
@@ -322,7 +332,7 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     # transform from (0, 0, w, h) -> (x1, y1, x2, y2)
     # anchors[:,2] * 0.5 把所有的 width 乘以 0.5, shape 是 (num_anchors,)
     # np.tile 之后, shape 变为 (2, num_anchors),然后再转置 (num_anchors,2)
-    # anchors 的每一行元素变成 (-w/2,-h/2,w/2,h/2)
+    # anchors 的每一行元素变成 (-w/2,-h/2,w/2,h/2), 以 (0,0) 作为中心点
     anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
     anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
 
