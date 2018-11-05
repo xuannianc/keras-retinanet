@@ -214,13 +214,13 @@ def anchors_for_shape(
 ):
     """ Generators anchors for a given shape.
 
-    Args
+    Args:
         image_shape: The shape of the image.
         pyramid_levels: List of ints representing which pyramids to use (defaults to [3, 4, 5, 6, 7]).
         anchor_params: Struct containing anchor parameters. If None, default values are used.
         shapes_callback: Function to call for getting the shape of the image at different pyramid levels.
 
-    Returns
+    Returns:
         np.array of shape (N, 4) containing the (x1, y1, x2, y2) coordinates for the anchors.
     """
 

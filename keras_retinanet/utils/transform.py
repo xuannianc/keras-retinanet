@@ -41,6 +41,8 @@ def transform_aabb(transform, aabb):
     """
     x1, y1, x2, y2 = aabb
     # Transform all 4 corners of the AABB.
+    # 竖着看分别表示 4 个角的坐标
+    # transform 的 shape 为 (3,3), 那么 points 的 shape 为 (3,4)
     points = transform.dot([
         [x1, x2, x1, x2],
         [y1, y2, y2, y1],
@@ -48,7 +50,9 @@ def transform_aabb(transform, aabb):
     ])
 
     # Extract the min and max corners again.
+    # min_corner 的 shape 为 (3,), 分别表示每一行的最小值, 第一行的最小值为 x1',第二行的最小值为 y1'
     min_corner = points.min(axis=1)
+    # max_corner 的 shape 为 (3,), 分别表示每一行的最大值, 第一行的最小值为 x2',第二行的最小值为 y2'
     max_corner = points.max(axis=1)
 
     return [min_corner[0], min_corner[1], max_corner[0], max_corner[1]]
@@ -70,7 +74,7 @@ def _random_vector(min, max, prng=DEFAULT_PRNG):
 def rotation(angle):
     """ Construct a homogeneous 2D rotation matrix.
     Args
-        angle: the angle in radians (弧度 3.14.. 相当于 180°)
+        angle: the angle in radians (弧度 3.14... 相当于 180°)
     Returns
         the rotation matrix as 3 by 3 numpy array
     """
@@ -189,10 +193,10 @@ def random_flip(flip_x_chance, flip_y_chance, prng=DEFAULT_PRNG):
 def change_transform_origin(transform, center):
     """ Create a new transform representing the same transformation,
         only with the origin of the linear part changed.
-    Args
+    Args:
         transform: the transformation matrix
         center: the new origin of the transformation
-    Returns
+    Returns:
         translate(center) * transform * translate(-center)
     """
     center = np.array(center)

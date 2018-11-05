@@ -30,7 +30,7 @@ def filter_detections(
 ):
     """ Filter detections using the boxes and classification values.
 
-    Args
+    Args:
         boxes                 : Tensor of shape (num_boxes, 4) containing the boxes in (x1, y1, x2, y2) format.
         classification        : Tensor of shape (num_boxes, num_classes) containing the classification scores.
         other                 : List of tensors of shape (num_boxes, ...) to filter along with the boxes and classification scores.
@@ -40,7 +40,7 @@ def filter_detections(
         max_detections        : Maximum number of detections to keep.
         nms_threshold         : Threshold for the IoU value to determine when a box should be suppressed.
 
-    Returns
+    Returns:
         A list of [boxes, scores, labels, other[0], other[1], ...].
         boxes is shaped (max_detections, 4) and contains the (x1, y1, x2, y2) of the non-suppressed boxes.
         scores is shaped (max_detections,) and contains the scores of the predicted class.
@@ -100,9 +100,13 @@ def filter_detections(
     scores = backend.gather_nd(classification, indices)
     # shape 为 (total_num_nms,)
     labels = indices[:, 1]
+    # tf.nn.top_k 参考 https://www.tensorflow.org/api_docs/python/tf/nn/top_k
+    # 对 scores 是一维的情况, 返回的两个值的 shape 都是 (k,)
+    # scores[i] 表示第 i 大的 score, top_indices[i] 表示第 i 大的 score 在原 scores 数组中的 idx
     scores, top_indices = backend.top_k(scores, k=keras.backend.minimum(max_detections, keras.backend.shape(scores)[0]))
 
     # filter input using the final set of indices
+    # indices[:, 0] 表示的是 total_num_nms 个条目中的 box_ids
     indices = keras.backend.gather(indices[:, 0], top_indices)
     boxes = keras.backend.gather(boxes, indices)
     labels = keras.backend.gather(labels, top_indices)
@@ -121,6 +125,8 @@ def filter_detections(
     boxes.set_shape([max_detections, 4])
     scores.set_shape([max_detections])
     labels.set_shape([max_detections])
+    # tf.int_shape 返回 tensor 的 shape 为 a tuple of int
+    # 参见 https://www.tensorflow.org/api_docs/python/tf/keras/backend/int_shape
     for o, s in zip(other_, [list(keras.backend.int_shape(o)) for o in other]):
         o.set_shape([max_detections] + s[1:])
 

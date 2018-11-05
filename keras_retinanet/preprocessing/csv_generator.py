@@ -137,6 +137,7 @@ class CSVGenerator(Generator):
                 (defaults to the directory containing the csv_data_file).
         """
         self.image_filepaths = []
+        # 内容格式为 {image_filepath:[x1,y1,x2,y2,class_name]...}
         self.image_data = {}
         self.base_dir = base_dir
 

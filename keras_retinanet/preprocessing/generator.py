@@ -69,21 +69,20 @@ class Generator(object):
             compute_shapes         : Function handler for computing the shapes of the pyramid for a given input.
             preprocess_image       : Function handler for preprocessing an image (scaling / normalizing) for passing through a network.
         """
-        self.transform_generator    = transform_generator
-        self.batch_size             = int(batch_size)
-        self.group_method           = group_method
-        self.shuffle_groups         = shuffle_groups
-        self.image_min_side         = image_min_side
-        self.image_max_side         = image_max_side
-        self.transform_parameters   = transform_parameters or TransformParameters()
+        self.transform_generator = transform_generator
+        self.batch_size = int(batch_size)
+        self.group_method = group_method
+        self.shuffle_groups = shuffle_groups
+        self.image_min_side = image_min_side
+        self.image_max_side = image_max_side
+        # 关于 or: None or 3 得到 3, 0 or 3 得到 3, 1 or 3 得到 1
+        self.transform_parameters = transform_parameters or TransformParameters()
         self.compute_anchor_targets = compute_anchor_targets
-        self.compute_shapes         = compute_shapes
-        self.preprocess_image       = preprocess_image
-        self.config                 = config
-
+        self.compute_shapes = compute_shapes
+        self.preprocess_image = preprocess_image
+        self.config = config
         self.group_index = 0
-        self.lock        = threading.Lock()
-
+        self.lock = threading.Lock()
         self.group_images()
 
     def size(self):
@@ -164,7 +163,8 @@ class Generator(object):
                     image.shape,
                     annotations['bboxes'][invalid_indices, :]
                 ))
-                for k in annotations_group[index].keys():
+                # 如 CSVGenerator 的 annotations 有两个 key, labels 和 bboxes
+                for k in annotations.keys():
                     annotations_group[index][k] = np.delete(annotations[k], invalid_indices, axis=0)
 
         return image_group, annotations_group
@@ -180,7 +180,9 @@ class Generator(object):
         # randomly transform both image and annotations
         if transform is not None or self.transform_generator:
             if transform is None:
-                transform = adjust_transform_for_image(next(self.transform_generator), image, self.transform_parameters.relative_translation)
+                transform = adjust_transform_for_image(next(self.transform_generator),
+                                                       image,
+                                                       self.transform_parameters.relative_translation)
 
             # apply transformation to image
             image = apply_transform(transform, image, self.transform_parameters)
@@ -222,7 +224,7 @@ class Generator(object):
             image, annotations = self.preprocess_group_entry(image, annotations)
 
             # copy processed data back to group
-            image_group[index]       = image
+            image_group[index] = image
             annotations_group[index] = annotations
 
         return image_group, annotations_group
@@ -251,9 +253,12 @@ class Generator(object):
         """ Compute inputs for the network using an image_group.
         """
         # get the max image shape
+        # 返回的 tuple 有三个元素, 第一个元素表示最大的 height, 第二个元素表示最大的 width, 第三个元素表示最大的 depth
         max_shape = tuple(max(image.shape[x] for image in image_group) for x in range(3))
 
         # construct an image batch object
+        # 把所有 image 铺到这张大的黑布上面, 左上角对齐
+        # 我觉得这样的好处是, annotations 不需要再改变
         image_batch = np.zeros((self.batch_size,) + max_shape, dtype=keras.backend.floatx())
 
         # copy all images to the upper left part of the image batch object
@@ -276,7 +281,7 @@ class Generator(object):
         """
         # get the max image shape
         max_shape = tuple(max(image.shape[x] for image in image_group) for x in range(3))
-        anchors   = self.generate_anchors(max_shape)
+        anchors = self.generate_anchors(max_shape)
 
         batches = self.compute_anchor_targets(
             anchors,
@@ -291,7 +296,7 @@ class Generator(object):
         """ Compute inputs and target outputs for the network.
         """
         # load images and annotations
-        image_group       = self.load_image_group(group)
+        image_group = self.load_image_group(group)
         annotations_group = self.load_annotations_group(group)
 
         # check validity of annotations
@@ -316,6 +321,8 @@ class Generator(object):
         with self.lock:
             if self.group_index == 0 and self.shuffle_groups:
                 # shuffle groups at start of epoch
+                # NOTE: self.groups 是二维数组, random.shuffle 只对第一维进行随机排列, 第二维保持不变
+                # 也就是说此处只对 group 进行随机排列, 而 group 内的 image_id 顺序保持不变
                 random.shuffle(self.groups)
             group = self.groups[self.group_index]
             self.group_index = (self.group_index + 1) % len(self.groups)

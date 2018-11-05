@@ -68,6 +68,7 @@ def adjust_transform_for_image(transform, image, relative_translation):
     """
     height, width, channels = image.shape
 
+    # FIXME: 下面几行似乎不起作用, 因为 result 最后还是由 change_transform_origin 决定
     result = transform
 
     # Scale the translation with the image size if specified.
@@ -83,7 +84,7 @@ def adjust_transform_for_image(transform, image, relative_translation):
 class TransformParameters:
     """ Struct holding parameters determining how to apply a transformation to an image.
 
-    Args
+    Args:
         fill_mode:             One of: 'constant', 'nearest', 'reflect', 'wrap'
         interpolation:         One of: 'nearest', 'linear', 'cubic', 'area', 'lanczos4'
         cval:                  Fill value to use with fill_mode='constant'
@@ -92,14 +93,14 @@ class TransformParameters:
     """
     def __init__(
         self,
-        fill_mode            = 'nearest',
-        interpolation        = 'linear',
-        cval                 = 0,
-        relative_translation = True,
+        fill_mode='nearest',
+        interpolation='linear',
+        cval=0,
+        relative_translation=True,
     ):
-        self.fill_mode            = fill_mode
-        self.cval                 = cval
-        self.interpolation        = interpolation
+        self.fill_mode = fill_mode
+        self.cval = cval
+        self.interpolation = interpolation
         self.relative_translation = relative_translation
 
     def cvBorderMode(self):
@@ -134,7 +135,7 @@ def apply_transform(matrix, image, params):
     The matrix is interpreted such that a point (x, y) on the original image is moved to transform * (x, y) in the generated image.
     Mathematically speaking, that means that the matrix is a transformation from the transformed image space to the original image space.
 
-    Args
+    Args:
       matrix: A homogeneous 3 by 3 matrix holding representing the transformation to apply.
       image:  The image to transform.
       params: The transform parameters (see TransformParameters)
@@ -142,10 +143,10 @@ def apply_transform(matrix, image, params):
     output = cv2.warpAffine(
         image,
         matrix[:2, :],
-        dsize       = (image.shape[1], image.shape[0]),
-        flags       = params.cvInterpolation(),
-        borderMode  = params.cvBorderMode(),
-        borderValue = params.cval,
+        dsize=(image.shape[1], image.shape[0]),
+        flags=params.cvInterpolation(),
+        borderMode=params.cvBorderMode(),
+        borderValue=params.cval,
     )
     return output
 
@@ -160,16 +161,19 @@ def compute_resize_scale(image_shape, min_side=800, max_side=1333):
     Returns
         A resizing scale.
     """
-    (rows, cols, _) = image_shape
+    (height, width, _) = image_shape
 
-    smallest_side = min(rows, cols)
+    smallest_side = min(height, width)
 
     # rescale the image so the smallest side is min_side
     scale = min_side / smallest_side
 
     # check if the largest side is now greater than max_side, which can happen
     # when images have a large aspect ratio
-    largest_side = max(rows, cols)
+    # FIXME: 感觉作者这里 aspect ratio 说的不对
+    # 如果是 w < h 当 w 变成 800 h > 1333 时, aspect ratio < 800 / 1333
+    # 如果是 w > h 当 h 变成 800 w > 1333 时, aspect ratio > 1333 / 800
+    largest_side = max(height, width)
     if largest_side * scale > max_side:
         scale = max_side / largest_side
 

@@ -193,10 +193,13 @@ def __build_model_pyramid(model_name, model, features):
     Returns
         A tensor containing the response from the submodel on the FPN features.
     """
-    # 如 features 为 [P3, P4, P5, P6, P7], model 是 regression_model
-    # 那么返回值的 shape 为 (None, 4 * 5)
-    # 关于 Concatenate, 所有数组的维度一定要相同, 假设 a 的 shape 为 (3,2), b 的 shape 为 (3,), 那么是不能使用 concatenate 的
+    # 关于 Concatenate, 首先所有数组的维数一定要相同, 其次非连接 axis 的维度也要相同
+    # 假设 a 的 shape 为 (3,2), b 的 shape 为 (3,), 那么是不能使用 concatenate 的
+    # 假设 a 的 shape 为 (3,2), b 的 shape 为 (2,2), 那么是不能使用 concatenate(axis=1) 的
     # 假设 a 的 shape 为 (3,2), b 的 shape 为 (3,4), 那么 concatenate(axis=1) 是 shape 变为 (3,6)
+    # 如 features 为 [P3, P4, P5, P6, P7], model 是 regression_model
+    # 那么返回值的 shape 为 (P3_SIZE+P4_SIZE,P5_SIZE,P6_SIZE,P6_SIZE, 4)
+    # NOTE: 这里的 axis=0 其实是 batch_size 那维
     return keras.layers.Concatenate(axis=1, name=model_name)([model(f) for f in features])
 
 
@@ -349,7 +352,8 @@ def retinanet_bbox(
     boxes = layers.RegressBoxes(name='boxes')([anchors, regression])
     boxes = layers.ClipBoxes(name='clipped_boxes')([model.inputs[0], boxes])
 
-    # filter detections (apply NMS / score threshold / select top-k)
+    # filter detections (score threshold / apply NMS / select top-k)
+    # [boxes, scores, labels, ...]
     detections = layers.FilterDetections(
         nms=nms,
         class_specific_filter=class_specific_filter,
