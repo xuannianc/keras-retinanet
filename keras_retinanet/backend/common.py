@@ -24,13 +24,13 @@ def bbox_transform_inv(boxes, deltas, mean=None, std=None):
     Before applying the deltas to the boxes, the normalization that was previously applied (in the generator) has to be removed.
     The mean and std are the mean and std as applied in the generator. They are unnormalized in this function and then applied to the boxes.
 
-    Args
+    Args:
         boxes : np.array of shape (B, N, 4), where B is the batch size, N the number of boxes and 4 values for (x1, y1, x2, y2).
         deltas: np.array of same shape as boxes. These deltas (d_x1, d_y1, d_x2, d_y2) are a factor of the width/height.
         mean  : The mean value used when computing deltas (defaults to [0, 0, 0, 0]).
         std   : The standard deviation used when computing deltas (defaults to [0.2, 0.2, 0.2, 0.2]).
 
-    Returns
+    Returns:
         A np.array of the same shape as boxes, but with deltas applied to each box.
         The mean and std are used during training to normalize the regression values (networks love normalization).
     """
@@ -59,12 +59,13 @@ def shift(shape, stride, anchors):
         shape  : Shape of feature map to shift the anchors over. (feature_map_height, feature_map_width)
         stride : Stride to shift the anchors with over the shape.
         anchors: The anchors to apply at each location.
+                shape 为 (num_ratios * num_scales, 4)
                 接收的 anchors 的中心点都在 (0,0),而真正 anchors 的起点是 (0.5 * stride, 0.5 * stride)
     """
     shift_x = (keras.backend.arange(0, shape[1], dtype=keras.backend.floatx()) + keras.backend.constant(0.5, dtype=keras.backend.floatx())) * stride
     shift_y = (keras.backend.arange(0, shape[0], dtype=keras.backend.floatx()) + keras.backend.constant(0.5, dtype=keras.backend.floatx())) * stride
     # 假设 shift_x 的 shape 为 (m,),shift_y 的 shape 为 (n,),那么 meshgrid 会生成两个 shape 为 (m,n) 的数组
-    # 第一个数组的内容相当于沿着 axis=0 复制了 n 次, 第二个数组的内容相当于把每个元素沿着 axis=1 复制了 m 次
+    # 第一个数组的内容相当于把每一行沿着 axis=0 复制了 n 次, 第二个数组的内容相当于把每个元素沿着 axis=1 复制了 m 次
     # 假设 shape=(4,3),stride=1 shift_x=np.array([0.5,1.5,2.5,3.5]), shift_y=np.array([0.5,1.5,2.5])
     # 那么 np.meshgrid(a,b) 生成两个数组
     # 第一个数组为 np.array([[0.5,1.5,2.5,3.5],[0.5,1.5,2.5,3.5],[0.5,1.5,2.5,3.5]]) * stride
@@ -91,7 +92,7 @@ def shift(shape, stride, anchors):
     shifts = keras.backend.transpose(shifts)
     num_anchors = keras.backend.shape(anchors)[0]
 
-    k = keras.backend.shape(shifts)[0]  # number of base points = feat_h * feat_w
+    k = keras.backend.shape(shifts)[0]  # number of base points = feature_map_height * feature_map_width
     # num_anchors 个 anchor 分别做 k 个 shift
     # 这一步应该是用了 broadcast,太复杂了 , 返回的 shape (k, num_anchors, 4)
     # TODO 改掉这样的实现

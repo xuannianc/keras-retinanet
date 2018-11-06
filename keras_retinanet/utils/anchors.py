@@ -292,6 +292,15 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     """
     Generate anchor (reference) windows by enumerating aspect ratios X
     scales w.r.t. a reference window.
+
+    Args:
+        base_size: anchor 的 大小
+        ratios: aspect ratios w/h
+        scales: 以 base_size 为基础对 anchor 进行适当的缩放
+
+    Returns:
+        shape 为 (num_ratios * num_scales, 4)
+        生成 num_ratios * num_scales 个中心点在 (0,0) 的 anchor
     """
 
     if ratios is None:

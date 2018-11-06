@@ -229,6 +229,7 @@ def __build_anchors(anchor_parameters, features):
         The shape is:
         ```
         (batch_size, num_anchors, 4)
+        num_anchors = num_features * num_ratios * num_scales
         ```
     """
     anchors = [
@@ -289,6 +290,9 @@ def retinanet(
     features = create_pyramid_features(C3, C4, C5)
 
     # for all pyramid levels, run available submodels
+    # 假设 submodels 是 default_submodels, 原 image 的 shape 为 (1024,1024) 那么 __build_pyramid() 返回两个值
+    # 第一个值为 regression_model 的返回, shape 是 (batch_size, 128 * 128 + 64 * 64 + 32 * 32 * 3, 4)
+    # 第二个值为 classification 的返回, shape 是 (batch_size, 128 * 128 + 64 * 64 + 32 * 32 * 3, num_classes)
     pyramids = __build_pyramid(submodels, features)
 
     return keras.models.Model(inputs=inputs, outputs=pyramids, name=name)
