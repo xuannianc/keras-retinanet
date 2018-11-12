@@ -52,15 +52,16 @@ def filter_detections(
     def _filter_detections(scores, labels):
         # threshold based on score
         # scores 的 shape 为 (num_boxes,)
-        # indices 的 shape 为 (num_greater_boxes,1), 第二维的数为 box_id
-        indices = backend.where(keras.backend.greater(scores, score_threshold))
+        # labels 的 shape 为 (num_boxes,)
+        # indices 的 shape 为 (num_greater_boxes,1), 第二维的元素为 box_id
+        filtered_indices = backend.where(keras.backend.greater(scores, score_threshold))
 
         if nms:
             # shape 为 (num_greater_boxes,4)
-            filtered_boxes = backend.gather_nd(boxes, indices)
+            filtered_boxes = backend.gather_nd(boxes, filtered_indices)
             # gather 返回值的 shape 是 (num_greater_boxes,1)
             # 那么 fitered_scores 的 shape 为 (num_greater_boxes,)
-            filtered_scores = keras.backend.gather(scores, indices)[:, 0]
+            filtered_scores = keras.backend.gather(scores, filtered_indices)[:, 0]
 
             # perform NMS
             # shape 为 (num_nms,), 每一个元素为 filtered_box 的 id
@@ -69,54 +70,60 @@ def filter_detections(
 
             # filter indices based on NMS
             # shape 为 (num_nms,1), 每一个元素为 box_id
-            indices = keras.backend.gather(indices, nms_indices)
+            filtered_indices = keras.backend.gather(filtered_indices, nms_indices)
 
         # add indices to list of all indices
-        labels = backend.gather_nd(labels, indices)
+        labels = backend.gather_nd(labels, filtered_indices)
         # shape 为 (num_nms, 2) 第二维的第一个元素表示 box_id, 第二个元素表示 class_id
-        indices = keras.backend.stack([indices[:, 0], labels], axis=1)
+        indices = keras.backend.stack([filtered_indices[:, 0], labels], axis=1)
 
         return indices
 
     if class_specific_filter:
+        # FIXME: 这种方式相比下一种会, 出现同一个 box 包含了多个 label 的情况
         all_indices = []
         # perform per class filtering
-        for c in range(int(classification.shape[1])):
-            # 所有 boxes 属于某一个 class 的 score
-            scores = classification[:, c]
-            labels = c * backend.ones((keras.backend.shape(scores)[0],), dtype='int64')
-            all_indices.append(_filter_detections(scores, labels))
+        for label in range(int(classification.shape[1])):
+            # 所有 boxes 属于某一个 label 的 score
+            scores_of_label = classification[:, label]
+            labels = label * backend.ones((keras.backend.shape(scores_of_label)[0],), dtype='int64')
+            all_indices.append(_filter_detections(scores_of_label, labels))
 
         # concatenate indices to single tensor
         # shape 为 (total_num_nms, 2)
-        indices = keras.backend.concatenate(all_indices, axis=0)
+        detection_indices = keras.backend.concatenate(all_indices, axis=0)
     else:
-        scores = keras.backend.max(classification, axis=1)
-        labels = keras.backend.argmax(classification, axis=1)
-        indices = _filter_detections(scores, labels)
+        # 每个 box 最大的 score
+        max_score_of_boxes = keras.backend.max(classification, axis=1)
+        max_score_labels_of_boxes = keras.backend.argmax(classification, axis=1)
+        detection_indices = _filter_detections(max_score_of_boxes, max_score_labels_of_boxes)
 
     # select top k
     # shape 为 (total_num_nms,)
-    scores = backend.gather_nd(classification, indices)
+    detection_scores = backend.gather_nd(classification, detection_indices)
     # shape 为 (total_num_nms,)
-    labels = indices[:, 1]
+    detection_labels = detection_indices[:, 1]
+    # shape 为 (total_num_nms,)
+    detection_boxes = detection_indices[:, 0]
     # tf.nn.top_k 参考 https://www.tensorflow.org/api_docs/python/tf/nn/top_k
     # 对 scores 是一维的情况, 返回的两个值的 shape 都是 (k,)
-    # scores[i] 表示第 i 大的 score, top_indices[i] 表示第 i 大的 score 在原 scores 数组中的 idx
-    scores, top_indices = backend.top_k(scores, k=keras.backend.minimum(max_detections, keras.backend.shape(scores)[0]))
+    # top_k_scores[i] 表示第 i 大的 score, top_k_score_indices[i] 表示第 i 大的 score 在 detection_scores 数组中的 idx
+    top_k_scores, top_k_score_indices = backend.top_k(detection_scores, k=keras.backend.minimum(max_detections,
+                                                                                  keras.backend.shape(detection_scores)[
+                                                                                      0]))
 
     # filter input using the final set of indices
     # indices[:, 0] 表示的是 total_num_nms 个条目中的 box_ids
-    indices = keras.backend.gather(indices[:, 0], top_indices)
-    boxes = keras.backend.gather(boxes, indices)
-    labels = keras.backend.gather(labels, top_indices)
-    other_ = [keras.backend.gather(o, indices) for o in other]
+    top_k_box_indices = keras.backend.gather(detection_boxes, top_k_score_indices)
+    top_k_boxes = keras.backend.gather(boxes, top_k_box_indices)
+    top_k_labels = keras.backend.gather(detection_labels, top_k_score_indices)
+    other_ = [keras.backend.gather(o, top_k_box_indices) for o in other]
 
     # zero pad the outputs
-    pad_size = keras.backend.maximum(0, max_detections - keras.backend.shape(scores)[0])
-    boxes = backend.pad(boxes, [[0, pad_size], [0, 0]], constant_values=-1)
-    scores = backend.pad(scores, [[0, pad_size]], constant_values=-1)
-    labels = backend.pad(labels, [[0, pad_size]], constant_values=-1)
+    pad_size = keras.backend.maximum(0, max_detections - keras.backend.shape(top_k_scores)[0])
+    boxes = backend.pad(top_k_boxes, [[0, pad_size], [0, 0]], constant_values=-1)
+    scores = backend.pad(top_k_scores, [[0, pad_size]], constant_values=-1)
+    labels = backend.pad(top_k_labels, [[0, pad_size]], constant_values=-1)
     labels = keras.backend.cast(labels, 'int32')
     other_ = [backend.pad(o, [[0, pad_size]] + [[0, 0] for _ in range(1, len(o.shape))], constant_values=-1) for o in
               other_]

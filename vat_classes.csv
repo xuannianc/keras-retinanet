@@ -1,0 +1,11 @@
+code,0
+number,1
+date,2
+check_code,3
+buyer,4
+seller,5
+goods,6
+amount_without_tax,7
+tax_rate,8
+tax_amount,9
+amount_with_tax,10

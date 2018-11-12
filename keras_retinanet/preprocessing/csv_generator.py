@@ -209,7 +209,7 @@ class CSVGenerator(Generator):
         """ Compute the aspect ratio for an image with image_index.
         """
         # PIL is fast for metadata
-        image = Image.open(self.image_filepaths(image_index))
+        image = Image.open(self.image_filepaths[image_index])
         return float(image.width) / float(image.height)
 
     def load_image(self, image_index):

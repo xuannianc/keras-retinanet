@@ -181,6 +181,7 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
         else:
             evaluation = Evaluate(validation_generator, tensorboard=tensorboard_callback,
                                   weighted_average=args.weighted_average)
+        # 封装上面的 evaluation, 设置其 model 为 prediction_model
         evaluation = RedirectModel(evaluation, prediction_model)
         callbacks.append(evaluation)
 
@@ -191,7 +192,7 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
         checkpoint = keras.callbacks.ModelCheckpoint(
             os.path.join(
                 args.snapshot_path,
-                '{backbone}_{dataset_type}_{{epoch:02d}}.h5'.format(backbone=args.backbone,
+                '{backbone}_{dataset_type}_{{epoch:02d}}.h5'.format(backbone=args.backbone_name,
                                                                     dataset_type=args.dataset_type)
             ),
             verbose=1,
@@ -363,7 +364,7 @@ def check_args(parsed_args):
         raise ValueError(
             "Multi-GPU support is experimental, use at own risk! Run with --multi-gpu-force if you wish to continue.")
 
-    if 'resnet' not in parsed_args.backbone:
+    if 'resnet' not in parsed_args.backbone_name:
         warnings.warn(
             'Using experimental backbone {}. Only resnet50 has been properly tested.'.format(parsed_args.backbone))
 
@@ -439,7 +440,7 @@ def parse_args(args):
                         default=800)
     parser.add_argument('--image-max-side', help='Rescale the image if the largest side is larger than max_side.',
                         type=int, default=1333)
-    parser.add_argument('--config_filepath', help='Path to a configuration parameters .ini file.')
+    parser.add_argument('--config', help='Path to a configuration parameters .ini file.')
     parser.add_argument('--weighted-average',
                         help='Compute the mAP using the weighted average of precisions among classes.',
                         action='store_true')
@@ -465,10 +466,10 @@ def main(args=None):
     keras.backend.tensorflow_backend.set_session(get_session())
 
     # optionally load config parameters
-    if args.config_filepath:
-        config = read_config_file(args.config_filepath)
+    if args.config:
+        args.config = read_config_file(args.config)
     else:
-        config = None
+        args.config = None
     # create the generators
     train_generator, validation_generator = create_generators(args, backbone.preprocess_image)
 
@@ -494,14 +495,14 @@ def main(args=None):
             weights=weights,
             multi_gpu=args.multi_gpu,
             freeze_backbone=args.freeze_backbone,
-            config=config
+            config=args.config
         )
 
     # print model summary
     print(model.summary())
 
     # this lets the generator compute backbone layer shapes using the actual backbone model
-    if 'vgg' in args.backbone or 'densenet' in args.backbone:
+    if 'vgg' in args.backbone_name or 'densenet' in args.backbone_name:
         train_generator.compute_shapes = make_shapes_callback(model)
         if validation_generator:
             validation_generator.compute_shapes = train_generator.compute_shapes

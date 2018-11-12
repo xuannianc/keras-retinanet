@@ -267,7 +267,7 @@ def shift(shape, stride, anchors):
     # shift_y 为 np.array([[0.5 * 8,...126 个...,0.5 * 8],...62 个...,[63.5 * 8,...126 个...,63.5 * 8]])
     shift_x, shift_y = np.meshgrid(shift_x, shift_y)
     # shifts 为 np.array([[0.5 * 8, 1.5 * 8,...,127.5 * 8,...62 个...,0.5 * 8, 1.5 * 8,...,127.5 * 8],
-    #                      [0.5 * 8,...126 个...,0.5 * 8,...62 个...,63.5 * 8,...126 个...,63.5 * 8],
+    #                     [0.5 * 8,...126 个...,0.5 * 8,...62 个...,63.5 * 8,...126 个...,63.5 * 8],
     #                     [0.5 * 8, 1.5 * 8,...,127.5 * 8,...62 个...,0.5 * 8, 1.5 * 8,...,127.5 * 8],
     #                     [0.5 * 8,...126 个...,0.5 * 8,...62 个...,63.5 * 8,...126 个...,63.5 * 8]].T
     shifts = np.vstack((
@@ -275,14 +275,14 @@ def shift(shape, stride, anchors):
         shift_x.ravel(), shift_y.ravel()
     )).transpose()
 
-    # add A anchors (1, A, 4) to
-    # cell K shifts (K, 1, 4) to get
-    # shift anchors (K, A, 4)
-    # reshape to (K*A, 4) shifted anchors
+    # add A anchors (1, A, 4) to cell K shifts (K, 1, 4) to get shift anchors (K, A, 4)
+    # then reshape to (K*A, 4) shifted anchors
     A = anchors.shape[0]
     K = shifts.shape[0]
-    # TODO: 了解一下 numpy broadcast
+    # numpy broadcast
+    # 按照上面的举例: shape 为 (64 * 128, 9, 4)
     all_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
+    # 按照上面的举例: shape 为 (64 * 128 * 9, 4)
     all_anchors = all_anchors.reshape((K * A, 4))
 
     return all_anchors
