@@ -43,14 +43,16 @@ def _compute_ap(recall, precision):
     mpre = np.concatenate(([0.], precision, [0.]))
 
     # compute the precision envelope
+    # 计算包络线, 从后往前取两两取较大值, 保证 precise 非减
     for i in range(mpre.size - 1, 0, -1):
         mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
 
     # to calculate area under PR curve, look for points
     # where X axis (recall) changes value
+    # 找出 recall 中与相连元素不同的元素的坐标
     i = np.where(mrec[1:] != mrec[:-1])[0]
 
-    # and sum (\Delta recall) * prec
+    # and sum (Delta recall) * prec
     ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
     return ap
 
@@ -207,6 +209,7 @@ def evaluate(
                 max_overlap = overlaps[0, assigned_annotation]
                 # FIXME: 一旦 max_overlap > iou_threshold, 会把 annotation assign
                 # 会不会后面有与该 annotation 有更大的 overlap 的 detection?
+                # 这样也就不能保证每个 annotation 取与其有最大 overlap 的 detection
                 if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
                     false_positives = np.append(false_positives, 0)
                     true_positives = np.append(true_positives, 1)

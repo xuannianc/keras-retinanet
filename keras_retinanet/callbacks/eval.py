@@ -89,6 +89,9 @@ class Evaluate(keras.callbacks.Callback):
             summary_value = summary.value.add()
             summary_value.simple_value = self.mean_ap
             summary_value.tag = "mAP"
+            # 下面这种方式更容易理解
+            # summary.value.add(tag="mAP", simple_value=self.mean_ap)
+            # epoch 表示横轴
             self.tensorboard.writer.add_summary(summary, epoch)
 
         logs['mAP'] = self.mean_ap
