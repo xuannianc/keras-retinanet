@@ -135,13 +135,9 @@ class Generator(object):
         """
         annotations_group = [self.load_annotations(image_index) for image_index in group]
         for annotations in annotations_group:
-            assert (isinstance(annotations,
-                               dict)), '\'load_annotations\' should return a list of dictionaries, received: {}'.format(
-                type(annotations))
-            assert (
-                        'labels' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
-            assert (
-                        'bboxes' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
+            assert (isinstance(annotations, dict)), '\'load_annotations\' should return a list of dictionaries, received: {}'.format(type(annotations))
+            assert ('labels' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
+            assert ('bboxes' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
 
         return annotations_group
 
@@ -168,6 +164,7 @@ class Generator(object):
                     annotations['bboxes'][invalid_indices, :]
                 ))
                 # 如 CSVGenerator 的 annotations 有两个 key, labels 和 bboxes
+                # 删除非法的 bbox 和其关联的 label
                 for k in annotations.keys():
                     annotations_group[index][k] = np.delete(annotations[k], invalid_indices, axis=0)
 
@@ -244,6 +241,9 @@ class Generator(object):
 
     def group_images(self):
         """ Order the images according to self.order and makes groups of self.batch_size.
+
+        Returns:
+            返回二维数组, 第一维的每一个元素表示一个 group 的 image_idx
         """
         # determine the order of the images
         # CSVGenerator 的 size() 方法是获取 image 的个数
@@ -255,7 +255,8 @@ class Generator(object):
             order.sort(key=lambda x: self.image_aspect_ratio(x))
 
         # divide into groups, one group = one batch
-        # 假设图片的数量为 num_images, 把这些图片分成 n 份, n=num_images/batch_size 整除的情况, n=num_images/batch_size + 1 非整除的情况
+        # 假设图片的数量为 num_images, 把这些图片分成 n 份
+        # 整除的情况: n=num_images/batch_size, 非整除的情况: n=num_images/batch_size + 1
         # 那么每份有 batch_size 张图片
         # NOTE: x % len(order) 可以处理 num_images/batch_size 不能整除的情况, 使用非常巧妙
         # 不能整除是指, 最后一个 batch 本不足 batch_size 张图片, 但是 x % len(order) 就可以用开头的图片进行补充
@@ -310,7 +311,9 @@ class Generator(object):
         """ Compute inputs and target outputs for the network.
         """
         # load images and annotations
+        # [image1, image2,...]
         image_group = self.load_image_group(group)
+        # [{'label': np.array(),'bbox': np.array()}
         annotations_group = self.load_annotations_group(group)
 
         # check validity of annotations
@@ -339,7 +342,7 @@ class Generator(object):
             if self.group_index == 0 and self.shuffle_groups:
                 # shuffle groups at start of epoch
                 # NOTE: self.groups 是二维数组, random.shuffle 只对第一维进行随机排列, 第二维保持不变
-                # 也就是说此处只对 group 进行随机排列, 而 group 内的 image_id 顺序保持不变
+                # 也就是说此处只对 group 进行随机排列, 而 group 内的 image_idx 顺序保持不变
                 random.shuffle(self.groups)
             group = self.groups[self.group_index]
             self.group_index = (self.group_index + 1) % len(self.groups)

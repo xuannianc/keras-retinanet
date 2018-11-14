@@ -40,13 +40,13 @@ def focal(alpha=0.25, gamma=2.0):
         Returns
             The focal loss of y_pred w.r.t. y_true.
         """
-        labels         = y_true[:, :, :-1]
-        anchor_state   = y_true[:, :, -1]  # -1 for ignore, 0 for background, 1 for object
+        labels = y_true[:, :, :-1]
+        anchor_state = y_true[:, :, -1]  # -1 for ignore, 0 for background, 1 for object
         classification = y_pred
 
         # filter out "ignore" anchors
-        indices        = backend.where(keras.backend.not_equal(anchor_state, -1))
-        labels         = backend.gather_nd(labels, indices)
+        indices = backend.where(keras.backend.not_equal(anchor_state, -1))
+        labels = backend.gather_nd(labels, indices)
         classification = backend.gather_nd(classification, indices)
 
         # compute the focal loss

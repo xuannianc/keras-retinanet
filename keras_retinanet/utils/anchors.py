@@ -44,7 +44,8 @@ class AnchorParameters:
 The default anchor parameters.
 """
 AnchorParameters.default = AnchorParameters(
-    # NOTE: 32 表示在 P3 上 anchor 的大小, P3 相比与原图长和宽都缩小了 4 倍, 那么原图上 32 * 32, 到 P3 上就是 8 * 8
+    # NOTE: 32 表示在 P3 上 anchor 的大小, P3 相比与原图长和宽都缩小了 8 倍, 那么原图上 32 * 32, 到 P3 上就是 4 * 4
+    # 且 P3 上每一个像素相当于原图上 8 * 8 个像素, stride=8, 相当于在 P3 上调整一个像素
     sizes=[32, 64, 128, 256, 512],
     strides=[8, 16, 32, 64, 128],
     # floatx() 返回 keras 默认使用的浮点数类型 'float32'
@@ -232,6 +233,7 @@ def anchors_for_shape(
 
     if shapes_callback is None:
         shapes_callback = guess_shapes
+    # guess_shapes 得到的每一个 feature map 的尺寸分别是原图的 [1/8, 1/16, 1/32, 1/64, 1/128]
     image_shapes = shapes_callback(image_shape, pyramid_levels)
 
     # compute anchors over all pyramid levels
