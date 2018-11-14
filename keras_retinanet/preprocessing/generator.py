@@ -42,18 +42,18 @@ class Generator(object):
     """
 
     def __init__(
-        self,
-        transform_generator = None,
-        batch_size=1,
-        group_method='ratio',  # one of 'none', 'random', 'ratio'
-        shuffle_groups=True,
-        image_min_side=800,
-        image_max_side=1333,
-        transform_parameters=None,
-        compute_anchor_targets=anchor_targets_bbox,
-        compute_shapes=guess_shapes,
-        preprocess_image=preprocess_image,
-        config=None
+            self,
+            transform_generator=None,
+            batch_size=1,
+            group_method='ratio',  # one of 'none', 'random', 'ratio'
+            shuffle_groups=True,
+            image_min_side=800,
+            image_max_side=1333,
+            transform_parameters=None,
+            compute_anchor_targets=anchor_targets_bbox,
+            compute_shapes=guess_shapes,
+            preprocess_image=preprocess_image,
+            config=None
     ):
         """ Initialize Generator object.
 
@@ -135,9 +135,13 @@ class Generator(object):
         """
         annotations_group = [self.load_annotations(image_index) for image_index in group]
         for annotations in annotations_group:
-            assert(isinstance(annotations, dict)), '\'load_annotations\' should return a list of dictionaries, received: {}'.format(type(annotations))
-            assert('labels' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
-            assert('bboxes' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
+            assert (isinstance(annotations,
+                               dict)), '\'load_annotations\' should return a list of dictionaries, received: {}'.format(
+                type(annotations))
+            assert (
+                        'labels' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
+            assert (
+                        'bboxes' in annotations), '\'load_annotations\' should return a list of dictionaries that contain \'labels\' and \'bboxes\'.'
 
         return annotations_group
 
@@ -194,6 +198,19 @@ class Generator(object):
 
         return image, annotations
 
+    def random_transform_group(self, image_group, annotations_group):
+        """ Randomly transforms each image and its annotations.
+        """
+
+        assert (len(image_group) == len(annotations_group))
+
+        for index in range(len(image_group)):
+            # transform a single group entry
+            image_group[index], annotations_group[index] = self.random_transform_group_entry(image_group[index],
+                                                                                             annotations_group[index])
+
+        return image_group, annotations_group
+
     def resize_image(self, image):
         """ Resize an image using image_min_side and image_max_side.
         """
@@ -204,9 +221,6 @@ class Generator(object):
         """
         # preprocess the image
         image = self.preprocess_image(image)
-
-        # randomly transform image and annotations
-        image, annotations = self.random_transform_group_entry(image, annotations)
 
         # resize image
         image, image_scale = self.resize_image(image)
@@ -219,13 +233,12 @@ class Generator(object):
     def preprocess_group(self, image_group, annotations_group):
         """ Preprocess each image and its annotations in its group.
         """
-        for index, (image, annotations) in enumerate(zip(image_group, annotations_group)):
-            # preprocess a single group entry
-            image, annotations = self.preprocess_group_entry(image, annotations)
+        assert (len(image_group) == len(annotations_group))
 
-            # copy processed data back to group
-            image_group[index] = image
-            annotations_group[index] = annotations
+        for index in range(len(image_group)):
+            # preprocess a single group entry
+            image_group[index], annotations_group[index] = self.preprocess_group_entry(image_group[index],
+                                                                                       annotations_group[index])
 
         return image_group, annotations_group
 
@@ -247,7 +260,8 @@ class Generator(object):
         # NOTE: x % len(order) 可以处理 num_images/batch_size 不能整除的情况, 使用非常巧妙
         # 不能整除是指, 最后一个 batch 本不足 batch_size 张图片, 但是 x % len(order) 就可以用开头的图片进行补充
         # 最后 self.groups 就是指每一个 batch 的图片的 order, order 是经过随机打乱或者按 aspect_ratio 排序的
-        self.groups = [[order[x % len(order)] for x in range(i, i + self.batch_size)] for i in range(0, len(order), self.batch_size)]
+        self.groups = [[order[x % len(order)] for x in range(i, i + self.batch_size)] for i in
+                       range(0, len(order), self.batch_size)]
 
     def compute_inputs(self, image_group):
         """ Compute inputs for the network using an image_group.
@@ -301,6 +315,9 @@ class Generator(object):
 
         # check validity of annotations
         image_group, annotations_group = self.filter_annotations(image_group, annotations_group, group)
+
+        # randomly transform data
+        image_group, annotations_group = self.random_transform_group(image_group, annotations_group)
 
         # perform preprocessing steps
         image_group, annotations_group = self.preprocess_group(image_group, annotations_group)
