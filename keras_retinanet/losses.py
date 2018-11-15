@@ -58,6 +58,7 @@ def focal(alpha=0.25, gamma=2.0):
         cls_loss = focal_weight * keras.backend.binary_crossentropy(labels, classification)
 
         # compute the normalizer: the number of positive anchors
+        # UNCLEAR: 为什么只除以 positive anchors?
         normalizer = backend.where(keras.backend.equal(anchor_state, 1))
         normalizer = keras.backend.cast(keras.backend.shape(normalizer)[0], keras.backend.floatx())
         normalizer = keras.backend.maximum(1.0, normalizer)
