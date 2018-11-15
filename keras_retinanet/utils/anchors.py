@@ -96,7 +96,7 @@ def anchor_targets_bbox(
     for index, (image, annotations) in enumerate(zip(image_group, annotations_group)):
         if annotations['bboxes'].shape[0]:
             # obtain indices of gt annotations with the greatest overlap
-            positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(anchors,
+            positive_indices, ignore_indices, argmax_overlaps_indices = compute_gt_annotations(anchors,
                                                                                             annotations['bboxes'],
                                                                                             negative_overlap,
                                                                                             positive_overlap)
@@ -108,14 +108,20 @@ def anchor_targets_bbox(
             regression_batch[index, positive_indices, -1] = 1
 
             # compute target class labels
+            # [argmax_overlaps_indices[positive_indices] 得到是 annotation 的下标
+            # 设置 positive 的 anchor 的相应的 class 为 1
             labels_batch[
-                index, positive_indices, annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int)] = 1
-
-            regression_batch[index, :, :-1] = bbox_transform(anchors, annotations['bboxes'][argmax_overlaps_inds, :])
+                index, positive_indices, annotations['labels'][argmax_overlaps_indices[positive_indices]].astype(int)] = 1
+            #
+            regression_batch[index, :, :-1] = bbox_transform(anchors, annotations['bboxes'][argmax_overlaps_indices, :])
 
         # ignore annotations outside of image
+        # 忽略中心点在图像外面的 anchor
         if image.shape:
+            # vstack 之后 shape 为 (2, num_anchors), 转置之后的 shape 为 (num_anchors, 2)
+            # 第一个元素是中心点 x 的坐标, 第二个元素是中心点 y 的坐标
             anchors_centers = np.vstack([(anchors[:, 0] + anchors[:, 2]) / 2, (anchors[:, 1] + anchors[:, 3]) / 2]).T
+            # shape 为 (num_anchors,)
             indices = np.logical_or(anchors_centers[:, 0] >= image.shape[1], anchors_centers[:, 1] >= image.shape[0])
 
             labels_batch[index, indices, -1] = -1
@@ -132,27 +138,31 @@ def compute_gt_annotations(
 ):
     """ Obtain indices of gt annotations with the greatest overlap.
 
-    Args
+    Args:
         anchors: np.array of annotations of shape (N, 4) for (x1, y1, x2, y2).
         annotations: np.array of shape (N, 5) for (x1, y1, x2, y2, label).
         negative_overlap: IoU overlap for negative anchors (all anchors with overlap < negative_overlap are negative).
         positive_overlap: IoU overlap or positive anchors (all anchors with overlap > positive_overlap are positive).
 
-    Returns
+    Returns:
         positive_indices: indices of positive anchors
         ignore_indices: indices of ignored anchors
         argmax_overlaps_inds: ordered overlaps indices
     """
-
+    # shape 为 (num_anchors, num_bboxes)
     overlaps = compute_overlap(anchors.astype(np.float64), annotations.astype(np.float64))
-    argmax_overlaps_inds = np.argmax(overlaps, axis=1)
-    max_overlaps = overlaps[np.arange(overlaps.shape[0]), argmax_overlaps_inds]
+    # shape 为 (num_anchors,)
+    argmax_overlaps_indices = np.argmax(overlaps, axis=1)
+    # shape 为 (num_anchors,)
+    max_overlaps = overlaps[np.arange(overlaps.shape[0]), argmax_overlaps_indices]
 
-    # assign "dont care" labels
+    # 判断 positive indices 和 ignore indices
+    # shape 为 (num_anchors,)
     positive_indices = max_overlaps >= positive_overlap
+    # shape 为 (num_anchors,)
     ignore_indices = (max_overlaps > negative_overlap) & ~positive_indices
 
-    return positive_indices, ignore_indices, argmax_overlaps_inds
+    return positive_indices, ignore_indices, argmax_overlaps_indices
 
 
 def layer_shapes(image_shape, model):
@@ -245,6 +255,8 @@ def anchors_for_shape(
             scales=anchor_params.scales
         )
         shifted_anchors = shift(image_shapes[idx], anchor_params.strides[idx], anchors)
+        # https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.append.html
+        # np.append(a,b,axis=0) 相当于 np.concatenate([a,b],axis=0)
         all_anchors = np.append(all_anchors, shifted_anchors, axis=0)
 
     return all_anchors
@@ -253,14 +265,16 @@ def anchors_for_shape(
 def shift(shape, stride, anchors):
     """ Produce shifted anchors based on shape of the map and stride size.
 
-    Args
+    Args:
         shape  : Shape to shift the anchors over.
         stride : Stride to shift the anchors with over the shape.
-        anchors: The anchors to apply at each location.
+        anchors: The anchors to apply at each location. shape 为 (num_scales * num_ratios,4).
+                 (-w/2,-h/2,w/2,h/2), 中心点在 (0,0)
     """
 
     # create a grid starting from half stride from the top left corner
-    # 如原 image 的 shape 为 (512, 1024), C3 的 shape 为 (64, 128) 缩小了 8 倍, stride=8
+    # 如原 image 的 shape 为 (512, 1024), C3 的 shape 为 (64, 128) 缩小了 8 倍
+    # C3 上的一个像素相当于原来的 8 * 8 个像素, stride=8 表示每次移动一个像素
     # 那么 shift_x 为 np.array([0.5 * 8, 1.5 * 8,...,127.5 * 8])
     shift_x = (np.arange(0, shape[1]) + 0.5) * stride
     # 那么 shift_y 为 np.array((0.5 * 8, 1.5 * 8,...,63.5 * 8])
@@ -296,7 +310,7 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     scales w.r.t. a reference window.
 
     Args:
-        base_size: anchor 的 大小
+        base_size: anchor 的大小
         ratios: aspect ratios w/h
         scales: 以 base_size 为基础对 anchor 进行适当的缩放
 
@@ -326,6 +340,7 @@ def generate_anchors(base_size=16, ratios=None, scales=None):
     anchors[:, 2:] = base_size * np.tile(scales, (2, len(ratios))).T
 
     # compute areas of anchors
+    # shape 为 (num_anchors, )
     areas = anchors[:, 2] * anchors[:, 3]
 
     # correct for ratios
@@ -375,8 +390,9 @@ def bbox_transform(anchors, gt_boxes, mean=None, std=None):
     targets_dy1 = (gt_boxes[:, 1] - anchors[:, 1]) / anchor_heights
     targets_dx2 = (gt_boxes[:, 2] - anchors[:, 2]) / anchor_widths
     targets_dy2 = (gt_boxes[:, 3] - anchors[:, 3]) / anchor_heights
-
+    # shape 为 (4, num_anchors)
     targets = np.stack((targets_dx1, targets_dy1, targets_dx2, targets_dy2))
+    # shape 为 (num_anchors, 4)
     targets = targets.T
 
     targets = (targets - mean) / std
