@@ -9,3 +9,5 @@ amount_without_tax,7
 tax_rate,8
 tax_amount,9
 amount_with_tax,10
+qrcode,11
+title,12

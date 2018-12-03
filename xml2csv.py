@@ -3,12 +3,14 @@ import glob
 import sys
 import os
 import xml.etree.ElementTree as ET
+import os.path as osp
 
 images_dir = '/home/adam/Pictures/vat'
-annotations_dir = './annotations'
+annotations_dir = osp.join(images_dir, 'annotations')
 annotations_csv = open('./vat_annotations.csv', 'w', newline='')
-classes_csv = open('./vat_classes.csv', 'w', newline='')
-classes = ['code', 'number', 'date', 'check_code', 'buyer', 'seller']
+# classes_csv = open('./vat_classes.csv', 'w', newline='')
+classes = ['code', 'number', 'date', 'check_code', 'buyer', 'seller', 'goods', 'amount_without_tax',
+           'tax_rate', 'tax_amount', 'amount_with_tax', 'qrcode']
 
 annotations_csv_writer = csv.writer(annotations_csv, dialect='excel')
 classes_csv_writer = csv.writer(classes_csv)
